@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!--
+  Sunday's bank callback relay.
+
+  Banks (via Enable Banking) only send you back to an https:// address. Sunday has no server, so
+  this static page stands in: the bank redirects here with ?code=…&state=…, and the page passes
+  exactly that to the Mac app as sunday://bank-callback?code=…&state=…. Sunday checks `state`
+  against the link it started and exchanges the code using a key that never leaves your Keychain.
+
+  The page stores nothing, loads nothing from anywhere else, and the code is single-use and
+  worthless without that key. Host it on any static HTTPS host (see docs/accounts-setup.md).
+-->
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="referrer" content="no-referrer">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+	<title>Returning to Sunday</title>
+	<style>
+		:root { color-scheme: dark; }
+		html, body { height: 100%; margin: 0; }
+		body {
+			display: grid; place-items: center;
+			background: radial-gradient(60% 60% at 50% 45%, #0b2230 0%, #05080c 70%);
+			color: rgba(255, 255, 255, 0.88);
+			font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+		}
+		main { text-align: center; max-width: 420px; padding: 32px; }
+		.orb {
+			width: 72px; height: 72px; margin: 0 auto 28px; border-radius: 50%;
+			background: radial-gradient(circle, #fff 0%, #cfefff 22%, #4cc8ff 48%, rgba(76, 200, 255, 0) 72%);
+			box-shadow: 0 0 60px 10px rgba(76, 200, 255, 0.35);
+			animation: breathe 2.4s ease-in-out infinite;
+		}
+		@keyframes breathe { 50% { transform: scale(1.08); box-shadow: 0 0 80px 18px rgba(76, 200, 255, 0.45); } }
+		h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+		p { margin: 0 0 20px; color: rgba(255, 255, 255, 0.6); }
+		a.button {
+			display: inline-block; padding: 9px 20px; border-radius: 999px;
+			background: rgba(255, 255, 255, 0.1); color: #fff; text-decoration: none; font-weight: 600;
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+		}
+		.error .orb { background: radial-gradient(circle, #fff 0%, #ffd9b0 25%, #ffb35c 50%, rgba(255, 179, 92, 0) 72%); box-shadow: 0 0 60px 10px rgba(255, 179, 92, 0.3); }
+	</style>
+</head>
+<body>
+	<main id="main">
+		<div class="orb"></div>
+		<h1 id="title">Returning to Sunday…</h1>
+		<p id="detail">If nothing happens, click below. You can close this tab afterwards.</p>
+		<a class="button" id="open" href="#">Open Sunday</a>
+	</main>
+	<script>
+		(function () {
+			var params = new URLSearchParams(window.location.search);
+			var keep = new URLSearchParams();
+			["code", "state", "error", "error_description"].forEach(function (k) {
+				if (params.has(k)) keep.set(k, params.get(k));
+			});
+
+			var title = document.getElementById("title");
+			var detail = document.getElementById("detail");
+			var open = document.getElementById("open");
+
+			if (!keep.has("state")) {
+				title.textContent = "Nothing to hand back";
+				detail.textContent = "This page is where your bank sends you after you approve Sunday. Start from Sunday › Settings › Accounts.";
+				open.style.display = "none";
+				return;
+			}
+
+			if (keep.has("error")) {
+				document.getElementById("main").className = "error";
+				title.textContent = "The bank didn't approve access";
+				detail.textContent = (keep.get("error_description") || keep.get("error")) + ". Sunday will tell you what to do next.";
+			}
+
+			var target = "sunday://bank-callback?" + keep.toString();
+			open.href = target;
+
+			// Drop the code from this tab's address bar and history, then hand it to Sunday.
+			window.history.replaceState(null, "", window.location.pathname);
+			window.location.href = target;
+		})();
+	</script>
+</body>
+</html>
